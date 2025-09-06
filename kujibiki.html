@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>配信用くじ引き（静的・リアルタイム / 匿名Auth）</title>
+    <style>
+      :root {
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      }
+      body {
+        margin: 16px;
+      }
+      h1 {
+        margin: 0 0 12px;
+      }
+      .row {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-bottom: 8px;
+      }
+      .col {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      textarea {
+        width: 320px;
+        height: 140px;
+      }
+      button {
+        padding: 8px 12px;
+      }
+      #display {
+        margin-top: 12px;
+        padding: 16px;
+        border: 1px solid #ddd;
+        border-radius: 12px;
+        font-size: 48px;
+        font-weight: 800;
+        text-align: center;
+        min-height: 90px;
+      }
+      #state {
+        font-size: 12px;
+        color: #666;
+      }
+      .panel {
+        border: 1px solid #eee;
+        padding: 12px;
+        border-radius: 12px;
+      }
+      .pill {
+        padding: 2px 8px;
+        border: 1px solid #ccc;
+        border-radius: 999px;
+        font-size: 12px;
+      }
+      .muted {
+        color: #777;
+        font-size: 12px;
+      }
+      .disabled {
+        opacity: 0.5;
+        pointer-events: none;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>🎲 配信用くじ引き（静的・リアルタイム / 匿名Auth）</h1>
+    <div id="state">Auth: <span id="authState">Signing in...</span></div>
+
+    <div class="row">
+      <div class="panel col">
+        <div class="row">
+          <div class="pill">Room: <span id="roomIdView">-</span></div>
+          <div class="pill">Players: <span id="playersView">-</span></div>
+          <div class="pill">Current: <span id="currentView">-</span></div>
+          <div class="pill">Remaining: <span id="remainView">-</span></div>
+        </div>
+
+        <div class="row">
+          <button id="drawBtn" class="disabled">1件 引く</button>
+          <button id="ackBtn" class="disabled">
+            お題を確認しました（非表示にする）
+          </button>
+          <button id="resetRoundBtn" class="disabled">
+            このラウンドを戻す
+          </button>
+          <button
+            id="resetAllBtn"
+            class="disabled"
+            style="background: #fee; border: 1px solid #f88"
+          >
+            全部初期化
+          </button>
+        </div>
+
+        <div class="row">
+          <button data-setp="4" class="disabled">4人にする</button>
+          <button data-setp="5" class="disabled">5人にする</button>
+          <button data-setp="6" class="disabled">6人にする</button>
+          <button data-setp="7" class="disabled">7人にする</button>
+        </div>
+
+        <div id="display">Ready</div>
+      </div>
+
+      <div class="panel col">
+        <div class="muted">
+          初回だけMasterに7件を入れてください。<br />※
+          Master入力後は自動でListへ展開されます。
+        </div>
+        <textarea
+          id="masterInput"
+          placeholder="（例）&#10;リーチをかける&#10;鳴かない&#10;字牌を使う&#10;ドラを使う&#10;ピンフであがる&#10;タンヤオであがる&#10;2回以上鳴く"
+        ></textarea>
+        <div class="row">
+          <button id="applyMasterBtn" class="disabled">
+            Masterを登録（自動展開）
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script type="module">
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+      import {
+        getFirestore,
+        doc,
+        getDoc,
+        setDoc,
+        onSnapshot,
+        runTransaction,
+        serverTimestamp,
+      } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+      import {
+        getAuth,
+        onAuthStateChanged,
+        signInAnonymously,
+      } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+
+      const firebaseConfig = {
+        apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "",
+        authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "",
+        projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "",
+        storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "",
+        messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "",
+        appId: import.meta.env.VITE_FIREBASE_APP_ID || "",
+        measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "",
+      };
+
+      const app = initializeApp(firebaseConfig);
+      const db = getFirestore(app);
+      const auth = getAuth(app);
+
+      const qs = new URLSearchParams(location.search);
+      const roomId = (qs.get("room") || "demo-room").trim();
+      document.getElementById("roomIdView").textContent = roomId;
+      const roomRef = doc(db, "rooms", roomId);
+
+      const DEFAULT_STATE = {
+        master: [],
+        list: [],
+        history: [],
+        currentPlayer: 0,
+        maxPlayers: 4,
+        roundBuffer: [],
+        display: "Ready",
+        updatedAt: serverTimestamp(),
+        version: 0,
+      };
+
+      function clamp(v, lo, hi) {
+        return Math.min(hi, Math.max(lo, v));
+      }
+
+      async function ensureRoom() {
+        const snap = await getDoc(roomRef);
+        if (!snap.exists()) {
+          await setDoc(roomRef, DEFAULT_STATE);
+        }
+      }
+
+      // ★ MasterがありListが空なら自動展開（Master→List）
+      async function autoPopulateFromMasterIfNeeded() {
+        await runTransaction(db, async (tx) => {
+          const snap = await tx.get(roomRef);
+          if (!snap.exists()) return;
+          const s = snap.data();
+          const master = s.master || [];
+          const list = s.list || [];
+          if (master.length > 0 && list.length === 0) {
+            tx.set(
+              roomRef,
+              {
+                ...s,
+                list: [...master],
+                roundBuffer: [],
+                currentPlayer: 0, // 次はPlayer1から（ボタンは削除済み）
+                display: "Ready",
+                updatedAt: serverTimestamp(),
+                version: (s.version || 0) + 1,
+              },
+              { merge: true }
+            );
+          }
+        });
+      }
+
+      // ==== UI参照 ====
+      const authStateEl = document.getElementById("authState");
+      const displayEl = document.getElementById("display");
+      const playersView = document.getElementById("playersView");
+      const currentView = document.getElementById("currentView");
+      const remainView = document.getElementById("remainView");
+
+      const drawBtn = document.getElementById("drawBtn");
+      const ackBtn = document.getElementById("ackBtn");
+      const resetRoundBtn = document.getElementById("resetRoundBtn");
+      const resetAllBtn = document.getElementById("resetAllBtn");
+      const masterInput = document.getElementById("masterInput");
+      const applyMasterBtn = document.getElementById("applyMasterBtn");
+      const playerBtns = Array.from(document.querySelectorAll("[data-setp]"));
+
+      function enableControls(enabled) {
+        const method = enabled ? "remove" : "add";
+        [
+          drawBtn,
+          ackBtn,
+          resetRoundBtn,
+          resetAllBtn,
+          applyMasterBtn,
+          ...playerBtns,
+        ].forEach((el) => el.classList[method]("disabled"));
+      }
+
+      // ==== Firestore Actions ====
+      async function drawOne() {
+        await runTransaction(db, async (tx) => {
+          const snap = await tx.get(roomRef);
+          const s = snap.exists() ? snap.data() : DEFAULT_STATE;
+
+          let list = [...(s.list || [])];
+          if (list.length === 0)
+            throw new Error("Listが空です。Masterへお題を入れてください。");
+
+          const maxP = clamp(Number(s.maxPlayers || 4), 1, 7);
+          let current = Number(s.currentPlayer || 0);
+          current = (current % maxP) + 1;
+
+          const idx = Math.floor(Math.random() * list.length);
+          const picked = list.splice(idx, 1)[0];
+
+          const roundBuffer = [...(s.roundBuffer || []), picked];
+          const history = [
+            { t: new Date(), player: current, picked },
+            ...(s.history || []),
+          ].slice(0, 200);
+
+          let display = `🎮 Player ${current} → ${picked}`;
+          let currentPlayer = current;
+          let listAfter = list;
+          let roundBufAfter = roundBuffer;
+
+          if (current === maxP) {
+            // N回で1ゲーム → 減った分を復元して次は1へ
+            listAfter = [...list, ...roundBuffer];
+            roundBufAfter = [];
+            currentPlayer = 0;
+            display = `🔁 Round Reset — last: Player ${current} → ${picked}`;
+          }
+
+          tx.set(
+            roomRef,
+            {
+              ...s,
+              list: listAfter,
+              roundBuffer: roundBufAfter,
+              history,
+              currentPlayer,
+              display,
+              updatedAt: serverTimestamp(),
+              version: (s.version || 0) + 1,
+            },
+            { merge: true }
+          );
+        });
+      }
+
+      // 「お題を確認しました」→ 表示を消す（中身はそのまま）
+      async function acknowledgeDisplay() {
+        await setDoc(
+          roomRef,
+          {
+            display: "（確認済・非表示）",
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true }
+        );
+      }
+
+      // ラウンド手動復元
+      async function resetRound() {
+        await runTransaction(db, async (tx) => {
+          const snap = await tx.get(roomRef);
+          const s = snap.exists() ? snap.data() : DEFAULT_STATE;
+          const restored = [...(s.list || []), ...(s.roundBuffer || [])];
+          tx.set(
+            roomRef,
+            {
+              ...s,
+              list: restored,
+              roundBuffer: [],
+              currentPlayer: 0,
+              display: "🔁 Round Reset (Manual)",
+              updatedAt: serverTimestamp(),
+              version: (s.version || 0) + 1,
+            },
+            { merge: true }
+          );
+        });
+      }
+
+      // 全部初期化（Masterは残す）
+      async function resetAll() {
+        await setDoc(
+          roomRef,
+          {
+            list: [],
+            history: [],
+            roundBuffer: [],
+            currentPlayer: 0,
+            display: "Ready",
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true }
+        );
+        // Masterがあれば自動でListへ展開
+        await autoPopulateFromMasterIfNeeded();
+      }
+
+      async function setPlayers(n) {
+        n = clamp(Number(n), 1, 7);
+        await setDoc(
+          roomRef,
+          {
+            maxPlayers: n,
+            currentPlayer: 0, // 人数変更時は次ラウンド先頭へ
+            display: `👥 Players = ${n} (next is 1)`,
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true }
+        );
+      }
+
+      // Master登録 → 自動でListへ展開
+      async function applyMaster() {
+        const text = masterInput.value || "";
+        const master = text
+          .split(/\r?\n/)
+          .map((s) => s.trim())
+          .filter(Boolean);
+        await setDoc(
+          roomRef,
+          { master, updatedAt: serverTimestamp() },
+          { merge: true }
+        );
+        await autoPopulateFromMasterIfNeeded();
+        alert("Masterを登録し、Listへ自動展開しました");
+      }
+
+      // ==== 匿名サインイン後にUIを起動 ====
+      onAuthStateChanged(auth, async (user) => {
+        if (!user) {
+          authStateEl.textContent = "Signing in (anonymous)...";
+          await signInAnonymously(auth).catch((e) => {
+            authStateEl.textContent = "Anonymous sign-in failed: " + e.message;
+          });
+          return;
+        }
+
+        authStateEl.textContent = `Signed in (uid: ${user.uid.slice(0, 6)}…)`;
+        enableControls(true);
+
+        await ensureRoom();
+        await autoPopulateFromMasterIfNeeded();
+
+        onSnapshot(roomRef, (snap) => {
+          if (!snap.exists()) return;
+          const s = snap.data();
+
+          displayEl.textContent = s.display || "Ready";
+          playersView.textContent = s.maxPlayers ?? "-";
+          currentView.textContent = (s.currentPlayer % (s.maxPlayers || 4)) + 1;
+          remainView.textContent = s.list?.length ?? 0;
+
+          document.getElementById(
+            "state"
+          ).textContent = `Auth: Signed in / version:${
+            s.version ?? 0
+          } / updated:${s.updatedAt?.toDate?.().toLocaleString?.() ?? "-"}`;
+        });
+
+        // ボタンイベント
+        drawBtn.onclick = () => drawOne().catch((e) => alert(e.message));
+        ackBtn.onclick = () => acknowledgeDisplay();
+        resetRoundBtn.onclick = () => resetRound();
+        resetAllBtn.onclick = () => resetAll();
+        applyMasterBtn.onclick = () => applyMaster();
+        playerBtns.forEach((btn) => {
+          btn.onclick = () => setPlayers(btn.getAttribute("data-setp"));
+        });
+      });
+    </script>
+  </body>
+</html>
