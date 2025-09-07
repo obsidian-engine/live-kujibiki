@@ -16,6 +16,8 @@
 - `FIREBASE_APP_ID`
 - `FIREBASE_MEASUREMENT_ID`
 
+⚠️ **注意**: Firebase APIキーは公開されるため、Firestoreセキュリティルールで適切なアクセス制御を設定してください。
+
 ### 2. GitHub Pagesの有効化
 
 1. リポジトリの Settings > Pages
