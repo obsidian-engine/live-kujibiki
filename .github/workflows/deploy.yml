@@ -27,13 +27,23 @@ jobs:
       - name: Create index.html with environment variables
         run: |
           cp kujibiki.html index.html
-          sed -i 's/import\.meta\.env\.VITE_FIREBASE_API_KEY || ""/'"\"${{ secrets.FIREBASE_API_KEY }}\""'/g' index.html
-          sed -i 's/import\.meta\.env\.VITE_FIREBASE_AUTH_DOMAIN || ""/'"\"${{ secrets.FIREBASE_AUTH_DOMAIN }}\""'/g' index.html
-          sed -i 's/import\.meta\.env\.VITE_FIREBASE_PROJECT_ID || ""/'"\"${{ secrets.FIREBASE_PROJECT_ID }}\""'/g' index.html
-          sed -i 's/import\.meta\.env\.VITE_FIREBASE_STORAGE_BUCKET || ""/'"\"${{ secrets.FIREBASE_STORAGE_BUCKET }}\""'/g' index.html
-          sed -i 's/import\.meta\.env\.VITE_FIREBASE_MESSAGING_SENDER_ID || ""/'"\"${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}\""'/g' index.html
-          sed -i 's/import\.meta\.env\.VITE_FIREBASE_APP_ID || ""/'"\"${{ secrets.FIREBASE_APP_ID }}\""'/g' index.html
-          sed -i 's/import\.meta\.env\.VITE_FIREBASE_MEASUREMENT_ID || ""/'"\"${{ secrets.FIREBASE_MEASUREMENT_ID }}\""'/g' index.html
+          # envsubstを使用してより安全に環境変数を置換
+          export FIREBASE_API_KEY="${{ secrets.FIREBASE_API_KEY }}"
+          export FIREBASE_AUTH_DOMAIN="${{ secrets.FIREBASE_AUTH_DOMAIN }}"
+          export FIREBASE_PROJECT_ID="${{ secrets.FIREBASE_PROJECT_ID }}"
+          export FIREBASE_STORAGE_BUCKET="${{ secrets.FIREBASE_STORAGE_BUCKET }}"
+          export FIREBASE_MESSAGING_SENDER_ID="${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}"
+          export FIREBASE_APP_ID="${{ secrets.FIREBASE_APP_ID }}"
+          export FIREBASE_MEASUREMENT_ID="${{ secrets.FIREBASE_MEASUREMENT_ID }}"
+          
+          # プレースホルダーを実際の値に置換
+          sed -i "s/__FIREBASE_API_KEY__/${FIREBASE_API_KEY}/g" index.html
+          sed -i "s/__FIREBASE_AUTH_DOMAIN__/${FIREBASE_AUTH_DOMAIN}/g" index.html
+          sed -i "s/__FIREBASE_PROJECT_ID__/${FIREBASE_PROJECT_ID}/g" index.html
+          sed -i "s/__FIREBASE_STORAGE_BUCKET__/${FIREBASE_STORAGE_BUCKET}/g" index.html
+          sed -i "s/__FIREBASE_MESSAGING_SENDER_ID__/${FIREBASE_MESSAGING_SENDER_ID}/g" index.html
+          sed -i "s/__FIREBASE_APP_ID__/${FIREBASE_APP_ID}/g" index.html
+          sed -i "s/__FIREBASE_MEASUREMENT_ID__/${FIREBASE_MEASUREMENT_ID}/g" index.html
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
