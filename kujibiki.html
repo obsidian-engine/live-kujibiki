@@ -371,22 +371,22 @@
         
         if (!master || master.length === 0) {
           // 設定タブの表示
-          displayEl.textContent = "まだお題が登録されていません";
+          if (displayEl) displayEl.textContent = "まだお題が登録されていません";
           
           // ゲームタブの表示
-          gameTabDisplayEl.innerHTML = '<div class="text-center text-gray-500">お題が登録されていません</div>';
-          gameTabCountEl.textContent = "0件";
+          if (gameTabDisplayEl) gameTabDisplayEl.innerHTML = '<div class="text-center text-gray-500">お題が登録されていません</div>';
+          if (gameTabCountEl) gameTabCountEl.textContent = "0件";
           return;
         }
         
         const masterListHTML = master.map((item, i) => `${i + 1}. ${item}`).join("<br>");
         
         // 設定タブの表示
-        displayEl.innerHTML = masterListHTML;
+        if (displayEl) displayEl.innerHTML = masterListHTML;
         
         // ゲームタブの表示
-        gameTabDisplayEl.innerHTML = masterListHTML;
-        gameTabCountEl.textContent = `${master.length}件`;
+        if (gameTabDisplayEl) gameTabDisplayEl.innerHTML = masterListHTML;
+        if (gameTabCountEl) gameTabCountEl.textContent = `${master.length}件`;
       }
 
       async function ensureRoom() {
@@ -592,14 +592,14 @@
       // ==== 匿名サインイン後にUIを起動 ====
       onAuthStateChanged(auth, async (user) => {
         if (!user) {
-          authStateEl.textContent = "Signing in (anonymous)...";
+          if (authStateEl) authStateEl.textContent = "Signing in (anonymous)...";
           await signInAnonymously(auth).catch((e) => {
-            authStateEl.textContent = "Anonymous sign-in failed: " + e.message;
+            if (authStateEl) authStateEl.textContent = "Anonymous sign-in failed: " + e.message;
           });
           return;
         }
 
-        authStateEl.textContent = `Signed in (uid: ${user.uid.slice(0, 6)}…)`;
+        if (authStateEl) authStateEl.textContent = `Signed in (uid: ${user.uid.slice(0, 6)}…)`;
         enableControls(true);
 
         await ensureRoom();
@@ -613,11 +613,11 @@
           if (!snap.exists()) return;
           const s = snap.data();
 
-          displayEl.textContent = s.display || "Ready";
-          playersView.textContent = s.maxPlayers ?? "-";
+          if (displayEl) displayEl.textContent = s.display || "Ready";
+          if (playersView) playersView.textContent = s.maxPlayers ?? "-";
           const currentPlayerNum = (s.currentPlayer % (s.maxPlayers || 4)) + 1;
-          currentView.textContent = `プレイヤー${currentPlayerNum}`;
-          remainView.textContent = s.list?.length ?? 0;
+          if (currentView) currentView.textContent = `プレイヤー${currentPlayerNum}`;
+          if (remainView) remainView.textContent = s.list?.length ?? 0;
 
           // FirebaseからmasterデータがあればローカルストレージとUI更新
           if (s.master && s.master.length > 0) {
@@ -629,11 +629,12 @@
             updateMasterDisplay(stored);
           }
 
-          document.getElementById(
-            "state"
-          ).textContent = `Auth: Signed in / version:${
-            s.version ?? 0
-          } / updated:${s.updatedAt?.toDate?.().toLocaleString?.() ?? "-"}`;
+          // State表示は削除されたため、この処理をコメントアウト
+          // document.getElementById(
+          //   "state"
+          // ).textContent = `Auth: Signed in / version:${
+          //   s.version ?? 0
+          // } / updated:${s.updatedAt?.toDate?.().toLocaleString?.() ?? "-"}`;
         });
 
         // ボタンイベント
