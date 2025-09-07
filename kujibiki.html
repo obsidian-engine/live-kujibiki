@@ -46,7 +46,6 @@
       <!-- ヘッダー -->
       <div class="text-center mb-8">
         <h1 class="text-4xl md:text-5xl font-bold text-gray-800 mb-2">🎲 配信用くじ引き</h1>
-        <div id="state" class="text-sm text-gray-600">Auth: <span id="authState">Signing in...</span></div>
       </div>
 
       <!-- タブナビゲーション -->
@@ -110,6 +109,17 @@
             Ready
           </div>
 
+          <!-- 現在のお題一覧 -->
+          <div class="mt-6 bg-gray-50 rounded-xl p-4">
+            <h3 class="text-lg font-semibold text-gray-800 mb-3 flex items-center">
+              📋 現在のお題一覧
+              <span id="gameTabTopicCount" class="ml-2 text-sm bg-blue-100 text-blue-800 px-2 py-1 rounded-full">0件</span>
+            </h3>
+            <div id="gameTabMasterList" class="bg-white rounded-lg p-4 text-sm max-h-40 overflow-y-auto border border-gray-200 min-h-[60px] flex items-center justify-center text-gray-500">
+              お題が登録されていません
+            </div>
+          </div>
+
           <!-- 非表示ボタン -->
           <button
             id="resetAllBtn"
@@ -167,6 +177,33 @@
       </div>
     </div>
 
+    <!-- 確認モーダル -->
+    <div id="confirmModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50" role="dialog" aria-labelledby="modalTitle" aria-describedby="modalDescription">
+      <div class="bg-white rounded-2xl shadow-2xl p-6 max-w-md mx-4 transform transition-all duration-200 scale-95">
+        <div class="text-center">
+          <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-amber-100 mb-4">
+            <svg class="h-6 w-6 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 19c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+          </div>
+          <h3 id="modalTitle" class="text-lg font-semibold text-gray-900 mb-2">ラウンドリセット確認</h3>
+          <p id="modalDescription" class="text-sm text-gray-600 mb-6">
+            現在のラウンドをリセットします。<br>
+            引いたお題は元に戻され、次はプレイヤー1からになります。<br>
+            よろしいですか？
+          </p>
+          <div class="flex gap-3 justify-center">
+            <button id="cancelReset" class="px-6 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2">
+              キャンセル
+            </button>
+            <button id="confirmReset" class="px-6 py-2 bg-amber-500 text-white rounded-lg font-medium hover:bg-amber-600 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2">
+              リセット実行
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <script>
       // Firebase設定を環境変数から注入（GitHub Actionsで置換）
       window.FIREBASE_CONFIG = {
@@ -202,6 +239,30 @@
         }
       }
 
+      // モーダル制御
+      function showConfirmModal() {
+        const modal = document.getElementById('confirmModal');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        document.getElementById('confirmReset').focus();
+        
+        // ESCキーでモーダルを閉じる
+        document.addEventListener('keydown', handleModalEscape);
+      }
+
+      function hideConfirmModal() {
+        const modal = document.getElementById('confirmModal');
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+        document.removeEventListener('keydown', handleModalEscape);
+      }
+
+      function handleModalEscape(e) {
+        if (e.key === 'Escape') {
+          hideConfirmModal();
+        }
+      }
+
       // キーボードナビゲーション対応
       document.addEventListener('DOMContentLoaded', function() {
         const tabButtons = document.querySelectorAll('.tab-btn');
@@ -217,6 +278,20 @@
               tabButtons[nextIndex].focus();
             }
           });
+        });
+
+        // モーダルのイベントリスナー
+        document.getElementById('cancelReset').addEventListener('click', hideConfirmModal);
+        document.getElementById('confirmReset').addEventListener('click', function() {
+          hideConfirmModal();
+          resetRound(); // 実際のリセット処理を実行
+        });
+
+        // モーダルの背景クリックで閉じる
+        document.getElementById('confirmModal').addEventListener('click', function(e) {
+          if (e.target === this) {
+            hideConfirmModal();
+          }
         });
       });
     </script>
@@ -291,11 +366,27 @@
       // master表示を更新
       function updateMasterDisplay(master) {
         const displayEl = document.getElementById("masterListDisplay");
+        const gameTabDisplayEl = document.getElementById("gameTabMasterList");
+        const gameTabCountEl = document.getElementById("gameTabTopicCount");
+        
         if (!master || master.length === 0) {
+          // 設定タブの表示
           displayEl.textContent = "まだお題が登録されていません";
+          
+          // ゲームタブの表示
+          gameTabDisplayEl.innerHTML = '<div class="text-center text-gray-500">お題が登録されていません</div>';
+          gameTabCountEl.textContent = "0件";
           return;
         }
-        displayEl.innerHTML = master.map((item, i) => `${i + 1}. ${item}`).join("<br>");
+        
+        const masterListHTML = master.map((item, i) => `${i + 1}. ${item}`).join("<br>");
+        
+        // 設定タブの表示
+        displayEl.innerHTML = masterListHTML;
+        
+        // ゲームタブの表示
+        gameTabDisplayEl.innerHTML = masterListHTML;
+        gameTabCountEl.textContent = `${master.length}件`;
       }
 
       async function ensureRoom() {
@@ -391,7 +482,7 @@
             listAfter = [...list, ...roundBuffer];
             roundBufAfter = [];
             currentPlayer = 0;
-            display = `🔁 Round Reset: Player ${current} → ${picked}`;
+            display = `🔁Player ${current} → ${picked}`;
           }
 
           tx.set(
@@ -524,7 +615,8 @@
 
           displayEl.textContent = s.display || "Ready";
           playersView.textContent = s.maxPlayers ?? "-";
-          currentView.textContent = (s.currentPlayer % (s.maxPlayers || 4)) + 1;
+          const currentPlayerNum = (s.currentPlayer % (s.maxPlayers || 4)) + 1;
+          currentView.textContent = `プレイヤー${currentPlayerNum}`;
           remainView.textContent = s.list?.length ?? 0;
 
           // FirebaseからmasterデータがあればローカルストレージとUI更新
@@ -547,7 +639,7 @@
         // ボタンイベント
         drawBtn.onclick = () => drawOne().catch((e) => alert(e.message));
         ackBtn.onclick = () => acknowledgeDisplay();
-        resetRoundBtn.onclick = () => resetRound();
+        resetRoundBtn.onclick = () => showConfirmModal(); // モーダル表示に変更
         resetAllBtn.onclick = () => resetAll();
         applyMasterBtn.onclick = () => applyMaster();
         playerBtns.forEach((btn) => {
