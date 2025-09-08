@@ -92,23 +92,12 @@
               </div>
               <div>
                 <span class="inline-flex items-center px-3 py-1 rounded-full bg-blue-50 text-blue-700">
-                  制限: <span id="limitsView" class="ml-1 font-medium">上限-個 / 警告-個</span>
+                  上限: <span class="ml-1 font-medium">10個</span>
                 </span>
               </div>
             </div>
           </div>
           
-          <!-- 警告メッセージ表示エリア -->
-          <div id="warningMessage" class="mb-4 p-4 bg-amber-50 border-l-4 border-amber-400 text-amber-800 rounded-lg hidden">
-            <div class="flex">
-              <div class="flex-shrink-0">
-                ⚠️
-              </div>
-              <div class="ml-3">
-                <p class="text-sm" id="warningText">警告メッセージがここに表示されます</p>
-              </div>
-            </div>
-          </div>
 
           <!-- 操作ボタン -->
           <div class="flex flex-wrap gap-3 justify-center mb-6">
@@ -185,50 +174,16 @@
               </button>
             </div>
             
-            <!-- お題数制限設定 -->
+            <!-- ラウンド制限設定 -->
             <div class="mb-6 bg-blue-50 rounded-xl p-4">
               <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                📊 お題数制限設定
+                📊 ラウンド制限設定
               </h3>
               
-              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                <div>
-                  <label for="maxTopicsInput" class="block text-sm font-medium text-gray-700 mb-2">
-                    お題数上限
-                  </label>
-                  <input
-                    type="number"
-                    id="maxTopicsInput"
-                    min="1"
-                    max="10"
-                    value="10"
-                    aria-describedby="maxTopicsHelp"
-                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                  />
-                  <p id="maxTopicsHelp" class="text-xs text-gray-500 mt-1">登録可能なお題の最大数（1-10）</p>
-                  <p id="maxTopicsError" class="text-xs text-red-600 mt-1 hidden"></p>
-                </div>
-                
-                <div>
-                  <label for="warningThresholdInput" class="block text-sm font-medium text-gray-700 mb-2">
-                    警告閾値
-                  </label>
-                  <input
-                    type="number"
-                    id="warningThresholdInput"
-                    min="1"
-                    max="50"
-                    value="10"
-                    aria-describedby="warningHelp"
-                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                  />
-                  <p id="warningHelp" class="text-xs text-gray-500 mt-1">残り数がこれ以下で警告表示（1-50）</p>
-                  <p id="warningError" class="text-xs text-red-600 mt-1 hidden"></p>
-                </div>
-                
+              <div class="grid grid-cols-1 gap-4">
                 <div>
                   <label for="maxDrawsPerRoundInput" class="block text-sm font-medium text-gray-700 mb-2">
-                    ラウンド抽選上限
+                    1ラウンド最大抽選数
                   </label>
                   <input
                     type="number"
@@ -242,11 +197,15 @@
                   <p id="drawLimitHelp" class="text-xs text-gray-500 mt-1">1ラウンド最大抽選数（0=無制限、1-20）</p>
                   <p id="drawLimitError" class="text-xs text-red-600 mt-1 hidden"></p>
                 </div>
+                
+                <div class="text-center text-sm text-gray-600">
+                  <p><strong>お題数上限:</strong> 10個（固定）</p>
+                </div>
               </div>
               
               <div class="mt-4 flex justify-center">
                 <button id="applyLimitsBtn" class="disabled px-6 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg font-medium shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
-                  ⚙️ 制限設定を適用
+                  ⚙️ ラウンド制限を適用
                 </button>
               </div>
             </div>
@@ -520,13 +479,8 @@
       const masterInput = document.getElementById("masterInput");
       const applyMasterBtn = document.getElementById("applyMasterBtn");
       const playerBtns = Array.from(document.querySelectorAll("[data-setp]"));
-      const maxTopicsInput = document.getElementById("maxTopicsInput");
-      const warningThresholdInput = document.getElementById("warningThresholdInput");
       const maxDrawsPerRoundInput = document.getElementById("maxDrawsPerRoundInput");
       const applyLimitsBtn = document.getElementById("applyLimitsBtn");
-      const limitsView = document.getElementById("limitsView");
-      const warningMessage = document.getElementById("warningMessage");
-      const warningText = document.getElementById("warningText");
 
       function enableControls(enabled) {
         const method = enabled ? "remove" : "add";
@@ -699,35 +653,28 @@
         }
       }
 
-      // 制限設定を適用
+      // ラウンド制限を適用
       async function applyLimits() {
         // バリデーション
-        const isValid = [
-          validateInput(maxTopicsInput, 1, 10, "maxTopicsError"),
-          validateInput(warningThresholdInput, 1, 50, "warningError"), 
-          validateInput(maxDrawsPerRoundInput, 0, 20, "drawLimitError")
-        ].every(Boolean);
+        const isValid = validateInput(maxDrawsPerRoundInput, 0, 20, "drawLimitError");
         
         if (!isValid) {
           alert("入力値に誤りがあります。エラーメッセージを確認してください。");
           return;
         }
         
-        const maxTopics = clamp(Number(maxTopicsInput.value || 10), 1, 10);
-        const warningThreshold = clamp(Number(warningThresholdInput.value || 10), 1, 50);
         const maxDrawsPerRound = clamp(Number(maxDrawsPerRoundInput.value || 0), 0, 20);
         
         await setDoc(
           roomRef,
           { 
-            maxTopics,
-            topicsWarningThreshold: warningThreshold,
+            maxTopics: 10, // 固定値
             maxDrawsPerRound,
             updatedAt: serverTimestamp() 
           },
           { merge: true }
         );
-        alert("制限設定を適用しました");
+        alert("ラウンド制限を適用しました");
       }
 
       // お題数制限チェック
@@ -737,16 +684,6 @@
         }
       }
 
-      // 警告チェックと表示
-      function checkAndShowWarning(remainingCount, threshold) {
-        if (remainingCount <= threshold && remainingCount > 0) {
-          const warningMsg = `⚠️ お題の残り数が${remainingCount}件になりました！（警告閾値: ${threshold}件）`;
-          warningText.textContent = warningMsg;
-          warningMessage.classList.remove("hidden");
-        } else {
-          warningMessage.classList.add("hidden");
-        }
-      }
 
       // 抽選ボタンの状態更新
       function updateDrawButtonState(remainingCount, maxDrawsPerRound, currentDraws) {
@@ -790,12 +727,9 @@
           .map((s) => s.trim())
           .filter(Boolean);
         
-        // 制限チェック（Firestoreから現在の設定を取得して確認）
+        // 制限チェック（固定上限10個）
         try {
-          const snap = await getDoc(roomRef);
-          const currentState = snap.exists() ? snap.data() : DEFAULT_STATE;
-          const maxTopics = currentState.maxTopics || 50;
-          checkTopicsLimit(master.length, maxTopics);
+          checkTopicsLimit(master.length, 10);
         } catch (error) {
           alert(error.message);
           return;
@@ -843,24 +777,14 @@
           const currentPlayerNum = (s.currentPlayer % (s.maxPlayers || 4)) + 1;
           if (currentView) currentView.textContent = `プレイヤー${currentPlayerNum}`;
           const remainingCount = s.list?.length ?? 0;
-          if (remainView) remainView.textContent = remainingCount;
+          if (remainView) remainView.textContent = String(remainingCount);
 
           // 制限情報の表示更新
-          const maxTopics = s.maxTopics ?? 50;
-          const warningThreshold = s.topicsWarningThreshold ?? 10;
           const maxDrawsPerRound = s.maxDrawsPerRound ?? 0;
           const currentDrawsInRound = s.roundBuffer?.length ?? 0;
           
-          const drawLimitText = maxDrawsPerRound > 0 ? ` / ラウンド${currentDrawsInRound}/${maxDrawsPerRound}回` : '';
-          if (limitsView) limitsView.textContent = `上限${maxTopics}個 / 警告${warningThreshold}個${drawLimitText}`;
-          
-          // 設定画面の入力値も更新
-          if (maxTopicsInput) maxTopicsInput.value = maxTopics;
-          if (warningThresholdInput) warningThresholdInput.value = warningThreshold;
+          // 設定画面の入力値を更新
           if (maxDrawsPerRoundInput) maxDrawsPerRoundInput.value = maxDrawsPerRound;
-          
-          // 警告チェック
-          checkAndShowWarning(remainingCount, warningThreshold);
           
           // 抽選ボタンの状態制御
           updateDrawButtonState(remainingCount, maxDrawsPerRound, currentDrawsInRound);
@@ -895,8 +819,6 @@
         });
 
         // リアルタイムバリデーションのイベントリスナー
-        maxTopicsInput.addEventListener('input', () => validateInput(maxTopicsInput, 1, 10, "maxTopicsError"));
-        warningThresholdInput.addEventListener('input', () => validateInput(warningThresholdInput, 1, 50, "warningError"));
         maxDrawsPerRoundInput.addEventListener('input', () => validateInput(maxDrawsPerRoundInput, 0, 20, "drawLimitError"));
 
         // モーダルのイベントリスナーをここで設定（resetRound関数が利用可能）
