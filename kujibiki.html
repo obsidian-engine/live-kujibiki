@@ -741,7 +741,16 @@
         
         await setDoc(
           roomRef,
-          { master, updatedAt: serverTimestamp() },
+          { 
+            master,
+            list: [],
+            history: [],
+            roundBuffer: [],
+            currentPlayer: 0,
+            display: "Ready",
+            version: 0,
+            updatedAt: serverTimestamp() 
+          },
           { merge: true }
         );
         await autoPopulateFromMasterIfNeeded();
@@ -769,25 +778,15 @@
         updateMasterDisplay(storedMaster);
 
         onSnapshot(roomRef, (snap) => {
-          if (!snap.exists()) {
-            console.log("ドキュメントが存在しません");
-            return;
-          }
+          if (!snap.exists()) return;
           const s = snap.data();
-          console.log("Firestore データ更新:", s);
 
           if (displayEl) displayEl.textContent = s.display || "Ready";
           if (playersView) playersView.textContent = s.maxPlayers ?? "-";
           const currentPlayerNum = (s.currentPlayer % (s.maxPlayers || 4)) + 1;
           if (currentView) currentView.textContent = `プレイヤー${currentPlayerNum}`;
           const remainingCount = s.list?.length ?? 0;
-          console.log("残り個数更新:", remainingCount, "リストデータ:", s.list, "remainView要素:", remainView);
-          if (remainView) {
-            remainView.textContent = String(remainingCount);
-            console.log("remainView要素に設定した値:", remainView.textContent);
-          } else {
-            console.error("remainView要素が見つかりません");
-          }
+          if (remainView) remainView.textContent = String(remainingCount);
 
           // 制限情報の表示更新
           const maxDrawsPerRound = s.maxDrawsPerRound ?? 0;
