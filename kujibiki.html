@@ -534,12 +534,9 @@
 
           let display = `🎮 Player ${current} → ${picked}`;
           let currentPlayer = current;
-          let listAfter = list;
           let roundBufAfter = newRoundBuffer;
 
           if (current === maxP) {
-            // N回で1ゲーム → 減った分を復元して次は1へ
-            listAfter = [...list, ...newRoundBuffer];
             roundBufAfter = [];
             currentPlayer = 0;
             display = `🔁Player ${current} → ${picked}`;
