@@ -781,12 +781,8 @@
           if (displayEl) displayEl.textContent = s.display || "Ready";
           if (playersView) playersView.textContent = s.maxPlayers ?? "-";
           if (currentView) {
-            if (s.currentPlayer === 0) {
-              currentView.textContent = "待機中";
-            } else {
               const currentPlayerNum = s.currentPlayer % (s.maxPlayers || 4);
               currentView.textContent = `プレイヤー${currentPlayerNum === 0 ? s.maxPlayers || 4 : currentPlayerNum}`;
-            }
           }
           const remainingCount = s.list?.length ?? 0;
           if (remainView) remainView.textContent = String(remainingCount);
