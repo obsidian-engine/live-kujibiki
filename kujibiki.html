@@ -280,12 +280,8 @@
           });
         });
 
-        // モーダルのイベントリスナー
-        document.getElementById('cancelReset').addEventListener('click', hideConfirmModal);
-        document.getElementById('confirmReset').addEventListener('click', function() {
-          hideConfirmModal();
-          resetRound(); // 実際のリセット処理を実行
-        });
+        // モーダルのイベントリスナー（後でセットアップ）
+        // resetRound関数が定義された後に設定される
 
         // モーダルの背景クリックで閉じる
         document.getElementById('confirmModal').addEventListener('click', function(e) {
@@ -645,6 +641,18 @@
         applyMasterBtn.onclick = () => applyMaster();
         playerBtns.forEach((btn) => {
           btn.onclick = () => setPlayers(btn.getAttribute("data-setp"));
+        });
+
+        // モーダルのイベントリスナーをここで設定（resetRound関数が利用可能）
+        document.getElementById('cancelReset').addEventListener('click', hideConfirmModal);
+        document.getElementById('confirmReset').addEventListener('click', async function() {
+          hideConfirmModal();
+          try {
+            await resetRound(); // resetRound関数が参照可能
+          } catch (error) {
+            console.error('リセット処理でエラーが発生しました:', error);
+            alert('リセット処理でエラーが発生しました: ' + error.message);
+          }
         });
       });
     </script>
