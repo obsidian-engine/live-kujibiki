@@ -90,11 +90,6 @@
                   Room: <span id="roomIdView" class="ml-1 font-medium">-</span>
                 </span>
               </div>
-              <div>
-                <span class="inline-flex items-center px-3 py-1 rounded-full bg-blue-50 text-blue-700">
-                  上限: <span class="ml-1 font-medium">10個</span>
-                </span>
-              </div>
             </div>
           </div>
           
@@ -152,7 +147,6 @@
             <div class="mb-6">
               <h2 class="text-2xl font-bold text-gray-800 mb-3">🛠️ お題設定</h2>
               <p class="text-gray-600 text-sm">
-                初回だけMasterに7件を入れてください。<br />
                 ※ Master入力後は自動でListへ展開されます。
               </p>
             </div>
@@ -161,6 +155,9 @@
               <label for="masterInput" class="block text-sm font-medium text-gray-700 mb-2">
                 お題一覧を入力
               </label>
+            <label for="masterInput" class="block text-xs text-gray-500 mb-1">
+              上限: <span class="ml-1 font-medium">10個</span>
+            </label>
               <textarea
                 id="masterInput"
                 class="w-full h-36 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 resize-none"
@@ -783,8 +780,14 @@
 
           if (displayEl) displayEl.textContent = s.display || "Ready";
           if (playersView) playersView.textContent = s.maxPlayers ?? "-";
-          const currentPlayerNum = (s.currentPlayer % (s.maxPlayers || 4)) + 1;
-          if (currentView) currentView.textContent = `プレイヤー${currentPlayerNum}`;
+          if (currentView) {
+            if (s.currentPlayer === 0) {
+              currentView.textContent = "待機中";
+            } else {
+              const currentPlayerNum = s.currentPlayer % (s.maxPlayers || 4);
+              currentView.textContent = `プレイヤー${currentPlayerNum === 0 ? s.maxPlayers || 4 : currentPlayerNum}`;
+            }
+          }
           const remainingCount = s.list?.length ?? 0;
           if (remainView) remainView.textContent = String(remainingCount);
 
