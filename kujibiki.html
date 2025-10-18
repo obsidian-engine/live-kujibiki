@@ -778,7 +778,15 @@
           if (!snap.exists()) return;
           const s = snap.data();
 
-          if (displayEl) displayEl.textContent = s.display || "Ready";
+          if (displayEl) {
+            displayEl.textContent = s.display || "Ready";
+            // 平和またはピンフが含まれていたら赤色にする
+            if (s.display && (s.display.includes('平和') || s.display.includes('ピンフ'))) {
+              displayEl.style.color = 'red';
+            } else {
+              displayEl.style.color = '';
+            }
+          }
           if (playersView) playersView.textContent = s.maxPlayers ?? "-";
           if (currentView) {
               const currentPlayerNum = s.currentPlayer % (s.maxPlayers || 4);
